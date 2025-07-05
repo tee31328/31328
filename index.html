@@ -1,1 +1,586 @@
-delete old html file
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ร้านผักปลาไหมล่ะ - ระบบ POS</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.22.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥬</text></svg>">
+    <meta name="description" content="ร้านผักปลาไหมล่ะ - ระบบ POS ร้านขายผักสด คุณภาพดี ราคาไหม">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+        }
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #16a34a;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @media print {
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading" class="loading">
+        <div>
+            <div class="spinner"></div>
+            <p style="margin-top: 16px; color: #16a34a; font-weight: 500;">กำลังโหลดร้านผักปลาไหมล่ะ...</p>
+        </div>
+    </div>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Icons
+        const ShoppingCart = ({ className = "w-6 h-6" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-1.1 5H19M9 19.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM20.5 19.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+            </svg>
+        );
+
+        const Plus = ({ className = "w-4 h-4" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+        );
+
+        const Minus = ({ className = "w-4 h-4" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+            </svg>
+        );
+
+        const Trash2 = ({ className = "w-4 h-4" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+        );
+
+        const Calculator = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+        );
+
+        const Receipt = ({ className = "w-4 h-4" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5l-3-3-3 3V8a2 2 0 012-2h4a2 2 0 012 2v11z" />
+            </svg>
+        );
+
+        const Package = ({ className = "w-8 h-8" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+        );
+
+        const Printer = ({ className = "w-4 h-4" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+        );
+
+        const VegetablePOS = () => {
+            const [products, setProducts] = useState([
+                { id: 1, name: 'กะหล่ำปลี', price: 25, unit: 'กก.', image: '🥬' },
+                { id: 2, name: 'ผักกาดขาว', price: 20, unit: 'กก.', image: '🥬' },
+                { id: 3, name: 'แครอท', price: 30, unit: 'กก.', image: '🥕' },
+                { id: 4, name: 'หัวหอมใหญ่', price: 35, unit: 'กก.', image: '🧅' },
+                { id: 5, name: 'มะเขือเทศ', price: 40, unit: 'กก.', image: '🍅' },
+                { id: 6, name: 'พริกหวาน', price: 50, unit: 'กก.', image: '🌶️' },
+                { id: 7, name: 'ผักบุ้ง', price: 15, unit: 'กก.', image: '🥬' },
+                { id: 8, name: 'ผักคะน้า', price: 18, unit: 'กก.', image: '🥬' },
+                { id: 9, name: 'ถั่วฝักยาว', price: 25, unit: 'กก.', image: '🫘' },
+                { id: 10, name: 'มะเขือยาว', price: 22, unit: 'กก.', image: '🍆' },
+                { id: 11, name: 'ข่า', price: 80, unit: 'กก.', image: '🧄' },
+                { id: 12, name: 'ตะไคร้', price: 60, unit: 'กก.', image: '🌿' }
+            ]);
+
+            const [cart, setCart] = useState([]);
+            const [currentTab, setCurrentTab] = useState('products');
+            const [receipt, setReceipt] = useState(null);
+            const [newProduct, setNewProduct] = useState({ name: '', price: '', unit: 'กก.', image: '🥬' });
+
+            useEffect(() => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('root').style.display = 'block';
+            }, []);
+
+            const addNewProduct = () => {
+                if (newProduct.name && newProduct.price) {
+                    const product = {
+                        id: Date.now(),
+                        name: newProduct.name,
+                        price: parseFloat(newProduct.price),
+                        unit: newProduct.unit,
+                        image: newProduct.image
+                    };
+                    setProducts([...products, product]);
+                    setNewProduct({ name: '', price: '', unit: 'กก.', image: '🥬' });
+                }
+            };
+
+            const updateProductPrice = (id, newPrice) => {
+                setProducts(products.map(product =>
+                    product.id === id ? { ...product, price: parseFloat(newPrice) || 0 } : product
+                ));
+            };
+
+            const deleteProduct = (id) => {
+                setProducts(products.filter(product => product.id !== id));
+            };
+
+            const addToCart = (product) => {
+                const existingItem = cart.find(item => item.id === product.id);
+                if (existingItem) {
+                    setCart(cart.map(item =>
+                        item.id === product.id 
+                            ? { ...item, quantity: item.quantity + 1 }
+                            : item
+                    ));
+                } else {
+                    setCart([...cart, { ...product, quantity: 1 }]);
+                }
+            };
+
+            const updateQuantity = (id, quantity) => {
+                const numQuantity = parseFloat(quantity);
+                if (numQuantity <= 0 || isNaN(numQuantity)) {
+                    setCart(cart.filter(item => item.id !== id));
+                } else {
+                    setCart(cart.map(item =>
+                        item.id === id ? { ...item, quantity: numQuantity } : item
+                    ));
+                }
+            };
+
+            const updateQuantityDirect = (id, quantity) => {
+                const numQuantity = parseFloat(quantity);
+                if (numQuantity <= 0 || isNaN(numQuantity)) {
+                    setCart(cart.filter(item => item.id !== id));
+                } else {
+                    setCart(cart.map(item =>
+                        item.id === id ? { ...item, quantity: numQuantity } : item
+                    ));
+                }
+            };
+
+            const removeFromCart = (id) => {
+                setCart(cart.filter(item => item.id !== id));
+            };
+
+            const calculateTotal = () => {
+                return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+            };
+
+            const checkout = () => {
+                const total = calculateTotal();
+                const receiptData = {
+                    items: [...cart],
+                    total,
+                    date: new Date().toLocaleString('th-TH'),
+                    receiptNo: `R${Date.now().toString().slice(-6)}`
+                };
+                setReceipt(receiptData);
+                setCart([]);
+                setCurrentTab('receipt');
+            };
+
+            const clearCart = () => {
+                setCart([]);
+            };
+
+            const printReceipt = () => {
+                window.print();
+            };
+
+            return (
+                <div className="max-w-6xl mx-auto p-4 bg-gradient-to-br from-green-50 to-emerald-50 min-h-screen">
+                    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+                        <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6 no-print">
+                            <h1 className="text-3xl font-bold flex items-center gap-3">
+                                <Package />
+                                ร้านผักปลาไหมล่ะ
+                            </h1>
+                            <p className="mt-2 opacity-90">ระบบ POS ร้านขายผักสด คุณภาพดี ราคาไหม</p>
+                        </div>
+
+                        <div className="bg-gray-100 border-b flex flex-wrap no-print">
+                            <button
+                                onClick={() => setCurrentTab('products')}
+                                className={`px-4 md:px-6 py-3 font-medium transition-colors ${
+                                    currentTab === 'products'
+                                        ? 'bg-white text-green-600 border-b-2 border-green-600'
+                                        : 'text-gray-600 hover:text-green-600'
+                                }`}
+                            >
+                                สินค้า
+                            </button>
+                            <button
+                                onClick={() => setCurrentTab('manage')}
+                                className={`px-4 md:px-6 py-3 font-medium transition-colors ${
+                                    currentTab === 'manage'
+                                        ? 'bg-white text-green-600 border-b-2 border-green-600'
+                                        : 'text-gray-600 hover:text-green-600'
+                                }`}
+                            >
+                                จัดการสินค้า
+                            </button>
+                            <button
+                                onClick={() => setCurrentTab('cart')}
+                                className={`px-4 md:px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
+                                    currentTab === 'cart'
+                                        ? 'bg-white text-green-600 border-b-2 border-green-600'
+                                        : 'text-gray-600 hover:text-green-600'
+                                }`}
+                            >
+                                <ShoppingCart className="w-4 h-4" />
+                                ตะกร้า ({cart.length})
+                            </button>
+                            {receipt && (
+                                <button
+                                    onClick={() => setCurrentTab('receipt')}
+                                    className={`px-4 md:px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
+                                        currentTab === 'receipt'
+                                            ? 'bg-white text-green-600 border-b-2 border-green-600'
+                                            : 'text-gray-600 hover:text-green-600'
+                                    }`}
+                                >
+                                    <Receipt />
+                                    ใบเสร็จ
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="p-4 md:p-6">
+                            {currentTab === 'manage' && (
+                                <div>
+                                    <h2 className="text-xl font-semibold mb-4 text-gray-800">จัดการสินค้า</h2>
+                                    
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                                        <h3 className="font-semibold text-blue-800 mb-3">เพิ่มสินค้าใหม่</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                                            <input
+                                                type="text"
+                                                placeholder="ชื่อสินค้า"
+                                                value={newProduct.name}
+                                                onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="ราคา"
+                                                value={newProduct.price}
+                                                onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
+                                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <select
+                                                value={newProduct.unit}
+                                                onChange={(e) => setNewProduct({...newProduct, unit: e.target.value})}
+                                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="กก.">กก.</option>
+                                                <option value="กรัม">กรัม</option>
+                                                <option value="ใบ">ใบ</option>
+                                                <option value="ต้น">ต้น</option>
+                                                <option value="ผล">ผล</option>
+                                            </select>
+                                            <select
+                                                value={newProduct.image}
+                                                onChange={(e) => setNewProduct({...newProduct, image: e.target.value})}
+                                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="🥬">🥬 ผักใบ</option>
+                                                <option value="🥕">🥕 ผักรากหัว</option>
+                                                <option value="🍅">🍅 ผักผล</option>
+                                                <option value="🧅">🧅 หัวหอม</option>
+                                                <option value="🌶️">🌶️ พริก</option>
+                                                <option value="🍆">🍆 มะเขือ</option>
+                                                <option value="🫘">🫘 ถั่ว</option>
+                                                <option value="🧄">🧄 เครื่องแกง</option>
+                                                <option value="🌿">🌿 สมุนไพร</option>
+                                            </select>
+                                            <button
+                                                onClick={addNewProduct}
+                                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                                            >
+                                                เพิ่มสินค้า
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {products.map(product => (
+                                            <div key={product.id} className="bg-white border border-gray-200 rounded-lg p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                <div className="flex items-center gap-4">
+                                                    <span className="text-2xl">{product.image}</span>
+                                                    <div>
+                                                        <h3 className="font-semibold">{product.name}</h3>
+                                                        <p className="text-sm text-gray-600">หน่วย: {product.unit}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-sm">ราคา:</span>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={product.price}
+                                                            onChange={(e) => updateProductPrice(product.id, e.target.value)}
+                                                            className="w-20 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                        />
+                                                        <span className="text-sm">บาท/{product.unit}</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => deleteProduct(product.id)}
+                                                        className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors"
+                                                    >
+                                                        ลบ
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {currentTab === 'products' && (
+                                <div>
+                                    <h2 className="text-xl font-semibold mb-4 text-gray-800">เลือกสินค้า</h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                        {products.map(product => (
+                                            <div key={product.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                                <div className="text-center">
+                                                    <div className="text-4xl mb-2">{product.image}</div>
+                                                    <h3 className="font-semibold text-gray-800">{product.name}</h3>
+                                                    <p className="text-green-600 font-bold text-lg">{product.price} บาท/{product.unit}</p>
+                                                    <button
+                                                        onClick={() => addToCart(product)}
+                                                        className="mt-3 w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                                                    >
+                                                        <Plus />
+                                                        เพิ่มในตะกร้า
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {currentTab === 'cart' && (
+                                <div>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-xl font-semibold text-gray-800">ตะกร้าสินค้า</h2>
+                                        {cart.length > 0 && (
+                                            <button
+                                                onClick={clearCart}
+                                                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+                                            >
+                                                <Trash2 />
+                                                เคลียร์ตะกร้า
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {cart.length === 0 ? (
+                                        <div className="text-center py-12">
+                                            <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                                            <p className="text-gray-500 text-lg">ไม่มีสินค้าในตะกร้า</p>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <div className="space-y-4 mb-6">
+                                                {cart.map(item => (
+                                                    <div key={item.id} className="bg-gray-50 rounded-lg p-4">
+                                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                            <div className="flex items-center gap-4">
+                                                                <span className="text-2xl">{item.image}</span>
+                                                                <div>
+                                                                    <h3 className="font-semibold">{item.name}</h3>
+                                                                    <p className="text-gray-600">{item.price} บาท/{item.unit}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex flex-col md:flex-row items-center gap-3">
+                                                                <div className="flex items-center gap-2">
+                                                                    <button
+                                                                        onClick={() => updateQuantity(item.id, item.quantity - 0.5)}
+                                                                        className="bg-gray-200 hover:bg-gray-300 w-8 h-8 rounded-full flex items-center justify-center text-sm"
+                                                                    >
+                                                                        -½
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => updateQuantity(item.id, item.quantity - 0.1)}
+                                                                        className="bg-gray-200 hover:bg-gray-300 w-8 h-8 rounded-full flex items-center justify-center text-xs"
+                                                                    >
+                                                                        -0.1
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                                                        className="bg-gray-200 hover:bg-gray-300 w-8 h-8 rounded-full flex items-center justify-center"
+                                                                    >
+                                                                        <Minus />
+                                                                    </button>
+                                                                </div>
+                                                                <div className="flex flex-col items-center">
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.1"
+                                                                        min="0"
+                                                                        value={item.quantity}
+                                                                        onChange={(e) => updateQuantityDirect(item.id, e.target.value)}
+                                                                        className="w-16 px-2 py-1 text-center border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                                    />
+                                                                    <span className="text-xs text-gray-500 mt-1">{item.unit}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <button
+                                                                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                                                        className="bg-gray-200 hover:bg-gray-300 w-8 h-8 rounded-full flex items-center justify-center"
+                                                                    >
+                                                                        <Plus />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => updateQuantity(item.id, item.quantity + 0.1)}
+                                                                        className="bg-gray-200 hover:bg-gray-300 w-8 h-8 rounded-full flex items-center justify-center text-xs"
+                                                                    >
+                                                                        +0.1
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => updateQuantity(item.id, item.quantity + 0.5)}
+                                                                        className="bg-gray-200 hover:bg-gray-300 w-8 h-8 rounded-full flex items-center justify-center text-sm"
+                                                                    >
+                                                                        +½
+                                                                    </button>
+                                                                </div>
+                                                                <span className="w-20 text-right font-semibold text-green-600">
+                                                                    {(item.price * item.quantity).toFixed(2)} บาท
+                                                                </span>
+                                                                <button
+                                                                    onClick={() => removeFromCart(item.id)}
+                                                                    className="bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-600"
+                                                                >
+                                                                    <Trash2 />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="border-t pt-4">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <span className="text-xl font-semibold">ราคารวม:</span>
+                                                    <span className="text-2xl font-bold text-green-600">
+                                                        {calculateTotal().toFixed(2)} บาท
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={checkout}
+                                                    className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 text-lg font-semibold"
+                                                >
+                                                    <Calculator />
+                                                    ชำระเงิน
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {currentTab === 'receipt' && receipt && (
+                                <div>
+                                    <div className="flex justify-between items-center mb-4 no-print">
+                                        <h2 className="text-xl font-semibold text-gray-800">ใบเสร็จรับเงิน</h2>
+                                        <button
+                                            onClick={printReceipt}
+                                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                                        >
+                                            <Printer />
+                                            พิมพ์ใบเสร็จ
+                                        </button>
+                                    </div>
+                                    <div className="max-w-md mx-auto bg-white border border-gray-300 rounded-lg p-6 print:shadow-none print:border-0">
+                                        <div className="text-center mb-6">
+                                            <h3 className="text-lg font-bold">ร้านผักปลาไหมล่ะ</h3>
+                                            <p className="text-sm text-gray-600">ผักสด คุณภาพดี ราคาไหม</p>
+                                            <div className="border-t border-b border-gray-300 py-2 my-3">
+                                                <p className="text-sm font-medium">เลขที่ใบเสร็จ: {receipt.receiptNo}</p>
+                                                <p className="text-sm">วันที่: {receipt.date}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="border-b pb-4 mb-4">
+                                            <div className="flex justify-between text-sm font-medium border-b pb-2 mb-2">
+                                                <span>รายการ</span>
+                                                <span>จำนวน</span>
+                                                <span>ราคา</span>
+                                            </div>
+                                            {receipt.items.map((item, index) => (
+                                                <div key={index} className="flex justify-between items-center mb-2 text-sm">
+                                                    <div className="flex-1">
+                                                        <p className="font-medium">{item.name}</p>
+                                                        <p className="text-gray-600">{item.price} บาท/{item.unit}</p>
+                                                    </div>
+                                                    <div className="w-16 text-center">
+                                                        <p>{item.quantity} {item.unit}</p>
+                                                    </div>
+                                                    <div className="w-20 text-right">
+                                                        <p className="font-semibold">{(item.price * item.quantity).toFixed(2)} บาท</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        
+                                        <div className="space-y-2 mb-4">
+                                            <div className="flex justify-between text-lg font-bold border-t pt-2">
+                                                <span>รวมทั้งสิ้น:</span>
+                                                <span className="text-green-600">{receipt.total.toFixed(2)} บาท</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="text-center mt-6 text-sm text-gray-500 border-t pt-4">
+                                            <p>ขอบคุณที่ใช้บริการ</p>
+                                            <p>โปรดเก็บใบเสร็จไว้เป็นหลักฐาน</p>
+                                            <p className="mt-2">ร้านผักปลาไหมล่ะ</p>
+                                            <p>โทร: 02-XXX-XXXX</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Hide loading and show app
+        setTimeout(() => {
+            document.getElementById('loading').style.display = 'none';
+            ReactDOM.render(<VegetablePOS />, document.getElementById('root'));
+        }, 500);
+    </script>
+</body>
+</html>
